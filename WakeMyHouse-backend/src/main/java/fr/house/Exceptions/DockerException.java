@@ -10,6 +10,6 @@ import lombok.Setter;
 public class DockerException extends RuntimeException {
 
     private String message;
-    private String cause;
+    private Throwable cause;
 
 }
