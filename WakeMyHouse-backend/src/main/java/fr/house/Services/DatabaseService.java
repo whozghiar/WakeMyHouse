@@ -137,9 +137,7 @@ public class DatabaseService {
         }
         existingDevice.setIp(device.getIp());
         existingDevice.setHostname(device.getHostname());
-
-        boolean status = networkService.pingHost(device.getIp(), 5000); // Ping pour vérifier le statut
-        existingDevice.setStatus(status);
+        existingDevice.setStatus(device.getStatus());
 
         try{
             deviceRepository.save(existingDevice);
@@ -150,7 +148,8 @@ public class DatabaseService {
 
     @Transactional
     protected void addOrUpdateDevice(Device device) {
-        boolean status = networkService.pingHost(device.getIp(), 5000); // Ping pour vérifier le statut
+        boolean status = networkService.pingHost(device.getIp(), 2000); // Ping pour vérifier le statut
+        log.info("Device " + device.getHostname() + " with MAC address " + device.getMac() + " is " + (status ? "up" : "down"));
         device.setStatus(status);
 
         if (!isDeviceExists(device)) {
