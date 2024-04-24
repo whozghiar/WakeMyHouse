@@ -18,11 +18,29 @@ import java.util.Set;
 @Slf4j
 public class GlobalExceptionsHandler {
 
-    @ExceptionHandler(DockerException.class)
-    public ResponseEntity<ResponseAPI> handleDockerException(Exception exception, WebRequest request) {
+    @ExceptionHandler(DeviceException.class)
+    public ResponseEntity<ResponseAPI> handleDeviceException(Exception exception, WebRequest request) {
         LocalDateTime time = LocalDateTime.now();
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
-        String type = "Erreur Docker";
+        String type = "Device Error";
+        List<String> errors = Collections.singletonList(exception.getMessage());
+
+        ResponseAPI body = new ResponseAPI(time, status, type, errors);
+
+        body.getErrors_msg().forEach(
+                error -> log.error(body.getType() + " : \n\t" + error)
+        );
+
+        return new ResponseEntity<>(body, status);
+
+    }
+
+
+    @ExceptionHandler(DatabaseException.class)
+    public ResponseEntity<ResponseAPI> handleDatabaseException(Exception exception, WebRequest request) {
+        LocalDateTime time = LocalDateTime.now();
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String type = "Database Error";
         List<String> errors = Collections.singletonList(exception.getMessage());
 
         ResponseAPI body = new ResponseAPI(time, status, type, errors);

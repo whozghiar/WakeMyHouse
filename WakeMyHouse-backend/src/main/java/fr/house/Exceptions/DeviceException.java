@@ -7,7 +7,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Getter
 @Setter
-public class DockerException extends RuntimeException {
+public class DeviceException extends RuntimeException {
 
     private String message;
     private Throwable cause;
