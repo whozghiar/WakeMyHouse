@@ -6,6 +6,9 @@ import fr.house.Exceptions.DeviceException;
 import fr.house.Repositories.DeviceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,7 +23,9 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DatabaseService {
+
     // Name of the Pi-hole container
     private final String CONTAINER_NAME = "pihole";
     // Path to the DHCP configuration file
@@ -29,11 +34,14 @@ public class DatabaseService {
     @Autowired
     private final DeviceRepository deviceRepository;
 
+    @Autowired
+    private NetworkService networkService;
+
     /**
      * This method returns the content of the DHCP configuration file of a Pi-hole container (named "pihole")
      * @return {String} The content of the DHCP configuration file
      */
-    private String fetchDhcpFileConfigContent() {
+    protected String fetchDhcpFileConfigContent() {
         List<String> commands = new ArrayList<>();
         commands.add("docker");
         commands.add("exec");
@@ -55,7 +63,7 @@ public class DatabaseService {
                 int exitVal = process.waitFor();
                 if (exitVal != 0) {
                     // Handle the case where the process execution fails
-                    System.out.println("Error occurred");
+                    log.error("Error while fetching the DHCP configuration file content");
                 }
             }
         } catch (IOException | InterruptedException e) {
@@ -73,7 +81,7 @@ public class DatabaseService {
      * It maps the devices informations to a set of Device objects
      * @return {Set<Device>} A set of devices
      */
-    private Set<Device> extractDevicesInformations() {
+    protected Set<Device> extractDevicesInformations() {
         Set<Device> devices = new HashSet<>();
         String result = fetchDhcpFileConfigContent();
 
@@ -94,7 +102,7 @@ public class DatabaseService {
                 }
             }
         } catch (Exception e) {
-            throw new DeviceException("Error while extracting devices informations", e);
+            throw new DatabaseException("Error while extracting devices informations", e);
         }
         return devices;
     }
@@ -104,7 +112,7 @@ public class DatabaseService {
      * @param device
      * @return {boolean} True if the device exists in the database, false otherwise
      */
-    private boolean isDeviceExists(Device device) {
+    protected boolean isDeviceExists(Device device) {
         return deviceRepository.findByMac(device.getMac()) != null;
     }
 
@@ -123,30 +131,37 @@ public class DatabaseService {
      */
     @Transactional
     protected void updateDevice(Device device) {
-        Device deviceToUpdate = deviceRepository.findByMac(device.getMac());
-        if (deviceToUpdate == null) {
-            throw new DatabaseException("Database inconsistency: device with MAC address " + device.getMac() + " not found", null);
+        Device existingDevice = deviceRepository.findByMac(device.getMac());
+        if (existingDevice == null) {
+            throw new DatabaseException("Device with MAC address " + device.getMac() + " not found in the database",null);
         }
-        deviceToUpdate.setIp(device.getIp());
-        deviceToUpdate.setHostname(device.getHostname());
+        existingDevice.setIp(device.getIp());
+        existingDevice.setHostname(device.getHostname());
+
+        boolean status = networkService.pingHost(device.getIp(), 5000); // Ping pour vérifier le statut
+        existingDevice.setStatus(status);
+
         try{
-            deviceRepository.save(deviceToUpdate);
+            deviceRepository.save(existingDevice);
         }catch (Exception e) {
             throw new DatabaseException("Error while updating device with MAC address " + device.getMac(), e);
         }
     }
 
-    /**
-     * This method fills the database with the devices informations
-     * @param {Device}devices - The devices informations
-     */
-    private void fillDatabase(Set<Device> devices) {
-        for (Device device : devices) {
-            if (!isDeviceExists(device)) {
-                addDevice(device);
-            }else{
-                updateDevice(device);
+    @Transactional
+    protected void addOrUpdateDevice(Device device) {
+        boolean status = networkService.pingHost(device.getIp(), 5000); // Ping pour vérifier le statut
+        device.setStatus(status);
+
+        if (!isDeviceExists(device)) {
+            try{
+                deviceRepository.save(device);
+            }catch (Exception e) {
+                throw new DatabaseException("Error while adding device with MAC address " + device.getMac(), e);
             }
+
+        } else {
+            updateDevice(device);
         }
     }
 
@@ -155,9 +170,12 @@ public class DatabaseService {
      * It fetches the devices informations from the DHCP configuration file of a Pi-hole container
      */
     @Scheduled(fixedRate = 10000)
-    private void autoFillDatabase() {
+    @Transactional
+    protected void autoFillDatabase() {
         Set<Device> devices = extractDevicesInformations();
-        fillDatabase(devices);
+        devices.forEach(device -> {
+            addOrUpdateDevice(device);
+        });
     }
 
 
