@@ -34,12 +34,16 @@ public class DeviceController {
     }
 
     @PostMapping("/{id}/refresh")
-    public boolean refreshDeviceStatus(@PathVariable Long id) {
-        return apiService.refreshDeviceStatus(id);
+    public ResponseEntity<Device> refreshDeviceStatus(@PathVariable Long id) {
+        log.info("Rafraîchissement de l'appareil " + id);
+        Device device = apiService.refreshDeviceStatus(id);
+        return new ResponseEntity<>(device, HttpStatus.OK);
     }
 
     @PostMapping("/{id}/power")
-    public void powerDevice(@PathVariable Long id, @RequestBody boolean powerOn) {
-        apiService.powerDevice(id, powerOn);
+    public ResponseEntity<Device> powerDevice(@PathVariable Long id, @RequestBody Boolean powerOn) {
+        log.info("Changement de l'état de l'appareil " + id + " à " + powerOn);
+        Device device = apiService.powerDevice(id, powerOn);
+        return new ResponseEntity<>(device, HttpStatus.OK);
     }
 }

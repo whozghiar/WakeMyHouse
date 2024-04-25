@@ -116,14 +116,6 @@ public class DatabaseService {
         return deviceRepository.findByMac(device.getMac()) != null;
     }
 
-    @Transactional
-    protected void addDevice(Device device) {
-        try{
-            deviceRepository.save(device);
-        }catch (Exception e) {
-            throw new DatabaseException("Error while adding device with MAC address " + device.getMac(), e);
-        }
-    }
 
     /**
      * This method updates the informations of a device in the database
@@ -164,11 +156,12 @@ public class DatabaseService {
         }
     }
 
+
     /**
      * This method is scheduled to run every 5 minutes
      * It fetches the devices informations from the DHCP configuration file of a Pi-hole container
      */
-    @Scheduled(fixedRate = 10000)
+    @Scheduled(fixedRate = 60000)
     @Transactional
     protected void autoFillDatabase() {
         Set<Device> devices = extractDevicesInformations();

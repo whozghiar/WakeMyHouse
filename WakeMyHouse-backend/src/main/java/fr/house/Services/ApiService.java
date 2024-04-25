@@ -3,6 +3,7 @@ package fr.house.Services;
 import fr.house.Beans.Device;
 import fr.house.Exceptions.DatabaseException;
 import fr.house.Repositories.DeviceRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,21 +37,42 @@ public class ApiService {
     }
 
     /**
+     * This method is used to get a device by its id
+     * @param id
+     * @return
+     */
+    public Device getDeviceById(Long id) {
+        Device device = deviceRepository.findById(id).orElse(null);
+        if (device == null) {
+            throw new DatabaseException("Device with id " + id + " not found", null);
+        }
+        return device;
+    }
+
+    @Transactional
+    public void addDevice(Device device) {
+        try{
+            deviceRepository.save(device);
+        } catch (Exception e) {
+            throw new DatabaseException("Error while saving device to database", e);
+        }
+    }
+
+    /**
      * This method is used to refresh the status of a device
      * @param {Long} deviceId - the id of the device to refresh
      * @return
      */
-    public boolean refreshDeviceStatus(Long deviceId) {
+    public Device refreshDeviceStatus(Long deviceId) {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device != null) {
             log.info("Refreshing device with id: " + deviceId);
-            boolean isReachable = networkService.pingHost(device.getIp(), 5000);
+            boolean isReachable = networkService.pingHost(device.getIp(), 1000);
             device.setStatus(isReachable);
-            deviceRepository.save(device);
-            return isReachable;
+            addDevice(device);
+
         }
-        log.error("Device with id: " + deviceId + " not found");
-        return false;
+        return device;
     }
 
     /**
@@ -58,7 +80,7 @@ public class ApiService {
      * @param deviceId
      * @param powerOn
      */
-    public void powerDevice(Long deviceId, boolean powerOn) {
+    public Device powerDevice(Long deviceId, boolean powerOn) {
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device != null && ((device.getStatus() && !powerOn) || (!device.getStatus() && powerOn))) {
             if (powerOn) {
@@ -70,5 +92,6 @@ public class ApiService {
             }
             refreshDeviceStatus(deviceId); // Refresh device status after power on/off
         }
+        return device;
     }
 }
