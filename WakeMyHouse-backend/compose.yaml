@@ -1,0 +1,16 @@
+services:
+  db:
+    image: mariadb:latest
+    container_name: WakeTheHouseContainer
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: NetworkPassword123!
+      MARIADB_DATABASE: WakeTheHouseDB
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  db_data:
+    driver: local
